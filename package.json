@@ -1,7 +1,7 @@
 {
-  "name": "hubot-pager-me",
+  "name": "hubot-pager-maint",
   "description": "PagerDuty integration for Hubot ",
-  "version": "3.1.5",
+  "version": "1.0.0",
   "author": "Josh Nichols <technicalpickles@github.com>",
   "license": "MIT",
   "keywords": [
@@ -44,5 +44,9 @@
     "test": "grunt test",
     "precommit": "npm test",
     "prepush": "npm test"
+  },
+  "homepage": "https://github.com/hubot-scripts/hubot-pager-me#readme",
+  "directories": {
+    "test": "test"
   }
 }
