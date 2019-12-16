@@ -31,9 +31,7 @@ module.exports = (robot) ->
       else
         minutes = 180
 
-      service_ids = { 'PIWHL71', 'P8SIPJV', 'P08MRH4',
-      'P3SB873', 'PSANKLW', 'P0UWFCF', 'P2MSHZ8', 'PSMIGCW', 
-      'PLCHVRZ', 'PP40HJJ', 'PHUT3P1' }
+      service_ids =  pagerDutyServices
 
       year = msg.match[3]
       month = msg.match[4]
