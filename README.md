@@ -1,20 +1,24 @@
-# hubot-pager-me
+# hubot-pager-maint
 
 [![npm version](https://badge.fury.io/js/hubot-pager-me.svg)](http://badge.fury.io/js/hubot-pager-me) [![Build Status](https://travis-ci.org/hubot-scripts/hubot-pager-me.svg?branch=master)](https://travis-ci.org/hubot-scripts/hubot-pager-me)
 
-PagerDuty integration for Hubot.
+PagerDuty integration for Hubot but only for creating maintenance windows.  Syntax is as such:
+
+```
+hubot maint 2019-10-08 13:00 60
+```
 
 
 ## Installation
 
 In your hubot repository, run:
 
-`npm install hubot-pager-me --save`
+`npm install hubot-pager-maint --save`
 
-Then add **hubot-pager-me** to your `external-scripts.json`:
+Then add **hubot-pager-maint** to your `external-scripts.json`:
 
 ```json
-["hubot-pager-me"]
+["hubot-pager-maint"]
 ```
 
 ## Configuration
