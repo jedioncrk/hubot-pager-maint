@@ -2,7 +2,7 @@
 #   Interact with PagerDuty services, schedules, and incidents with Hubot.
 #
 # Commands:
-#   hubot pager maint <minutes> - schedule a maintenance window for <minutes>
+#   hubot pager maint <date> <time> <minutes> - schedule a maintenance window for <date> <time> <minutes>
 #
 # Authors:
 #   Jesse Newland, Josh Nicols, Jacob Bednarz, Chris Lundquist, Chris Streeter, Joseph Pierri, Greg Hoin, Michael Warkentin
@@ -14,7 +14,7 @@ moment = require('moment-timezone')
 
 pagerDutyUserId        = process.env.HUBOT_PAGERDUTY_USER_ID
 pagerDutyServiceApiKey = process.env.HUBOT_PAGERDUTY_SERVICE_API_KEY
-pagerDutySchedules     = process.env.HUBOT_PAGERDUTY_SCHEDULES
+pagerDutyServices      = process.env.HUBOT_PAGERDUTY_SERVICES
 
 module.exports = (robot) ->
 
@@ -22,79 +22,39 @@ module.exports = (robot) ->
     if pagerduty.missingEnvironmentForApi(msg)
       return
 
-    campfireUserToPagerDutyUser msg, msg.message.user, (user) ->
-      requester_id = user.id
-      return unless requester_id
+    service_ids = pagerDutyServices.split(',')
 
-      if msg.match[8]
-        minutes = msg.match[8]
+    year = msg.match[3]
+    month = msg.match[4]
+    day = msg.match[5]
+    hour = msg.match[6]
+    minute = msg.match[7]
+    minutes = msg.match[8]
+    description = "generic window"
+
+    datetime = new Date year + "-" + month + "-" + day + " " + hour + ":" + minute
+    start_time = moment(datetime).format()
+    end_time = moment(datetime).add(minutes, 'minutes').format()
+
+    services = []
+    for service_id in service_ids
+      services.push id: service_id, type: 'service_reference'
+    
+    maintenance_window = { start_time, end_time, description, services }
+    data = { maintenance_window, services }
+
+    #jdata = JSON.stringify(maintenance_window)
+    #msg.send "#{jdata}"
+    msg.send "Opening maintenance window"
+    pagerduty.post '/maintenance_windows', data, (err, json) ->
+      if err?
+        robot.emit 'error', err, msg
+        return
+
+      if json && json.maintenance_window
+        msg.send "Maintenance window created! ID: #{json.maintenance_window.id} Ends: #{json.maintenance_window.end_time}"
       else
-        minutes = 180
-
-      service_ids =  pagerDutyServices
-
-      year = msg.match[3]
-      month = msg.match[4]
-      day = msg.match[5]
-      hour = msg.match[6]
-      minute = msg.match[7]
-
-      datetime = new Date year + "-" + month + "-" + day + " " + hour + ":" + minute
-      start_time = moment(datetime).format()
-      end_time = moment(datetime).add('minutes', minutes).format()
-
-      services = []
-      for service_id in service_ids
-        services.push id: service_id, type: 'service_reference'
-
-      maintenance_window = { start_time, end_time, services }
-      data = { maintenance_window, services }
-
-      msg.send "Opening maintenance window for: #{service_ids}"
-      pagerduty.post '/maintenance_windows', data, (err, json) ->
-        if err?
-          robot.emit 'error', err, msg
-          return
-
-        if json && json.maintenance_window
-          msg.send "Maintenance window created! ID: #{json.maintenance_window.id} Ends: #{json.maintenance_window.end_time}"
-        else
-          msg.send "That didn't work. Check Hubot's logs for an error!"
-
-  parseIncidentNumbers = (match) ->
-    match.split(/[ ,]+/).map (incidentNumber) ->
-      parseInt(incidentNumber)
-
-  reassignmentParametersForUserOrScheduleOrEscalationPolicy = (msg, string, cb) ->
-    if campfireUser = robot.brain.userForName(string)
-      campfireUserToPagerDutyUser msg, campfireUser, (user) ->
-        cb(assigned_to_user: user.id,  name: user.name)
-    else
-      pagerduty.get "/escalation_policies", query: string, (err, json) ->
-        if err?
-          robot.emit 'error', err, msg
-          return
-
-        escalationPolicy = null
-
-        if json?.escalation_policies?.length == 1
-          escalationPolicy = json.escalation_policies[0]
-        # Multiple results returned and one is exact (case-insensitive)
-        else if json?.escalation_policies?.length > 1
-          matchingExactly = json.escalation_policies.filter (es) ->
-            es.name.toLowerCase() == string.toLowerCase()
-          if matchingExactly.length == 1
-            escalationPolicy = matchingExactly[0]
-
-        if escalationPolicy?
-          cb(escalation_policy: escalationPolicy.id, name: escalationPolicy.name)
-        else
-          SchedulesMatching msg, string, (schedule) ->
-            if schedule
-              withCurrentOncallUser msg, schedule, (user, schedule) ->
-                cb(assigned_to_user: user.id,  name: user.name)
-            else
-              cb()
+        msg.send "That didn't work. Check Hubot's logs for an error!"
 
   pagerDutyIntegrationAPI = (msg, cmd, description, cb) ->
     unless pagerDutyServiceApiKey?
@@ -117,51 +77,6 @@ module.exports = (robot) ->
     else
       ''
     "#{inc.incident_number}: #{inc.created_at} #{summary} #{assigned_to}\n"
-
-  updateIncidents = (msg, incidentNumbers, statusFilter, updatedStatus) ->
-    campfireUserToPagerDutyUser msg, msg.message.user, (user) ->
-
-      requesterId = user.id
-      return unless requesterId
-
-      pagerduty.getIncidents statusFilter, (err, incidents) ->
-        if err?
-          robot.emit 'error', err, msg
-          return
-
-        foundIncidents = []
-        for incident in incidents
-          # FIXME this isn't working very consistently
-          if incidentNumbers.indexOf(incident.incident_number) > -1
-            foundIncidents.push(incident)
-
-        if foundIncidents.length == 0
-          msg.reply "Couldn't find incident(s) #{incidentNumbers.join(', ')}. Use `#{robot.name} pager incidents` for listing."
-        else
-          data = {
-            incidents: foundIncidents.map (incident) ->
-              {
-                id: incident.id,
-                type: 'incident_reference',
-                status: updatedStatus
-              }
-          }
-
-          pagerduty.put "/incidents", data , (err, json) ->
-            if err?
-              robot.emit 'error', err, msg
-              return
-
-            if json?.incidents
-              buffer = "Incident"
-              buffer += "s" if json.incidents.length > 1
-              buffer += " "
-              buffer += (incident.incident_number for incident in json.incidents).join(", ")
-              buffer += " #{updatedStatus}"
-              msg.reply buffer
-            else
-              msg.reply "Problem updating incidents #{incidentNumbers.join(',')}"
-
 
   pagerDutyIntegrationPost = (msg, json, cb) ->
     msg.http('https://events.pagerduty.com/generic/2010-04-15/create_event.json')
