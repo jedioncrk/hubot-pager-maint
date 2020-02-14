@@ -3,6 +3,7 @@
 #
 # Commands:
 #   hubot pager maint <date> <time> <minutes> - schedule a maintenance window for <date> <time> <minutes>
+#   hubot who's on call - return a list of services and who is on call for them
 #
 # Authors:
 #   Jesse Newland, Josh Nicols, Jacob Bednarz, Chris Lundquist, Chris Streeter, Joseph Pierri, Greg Hoin, Michael Warkentin
@@ -17,7 +18,55 @@ pagerDutyServiceApiKey = process.env.HUBOT_PAGERDUTY_SERVICE_API_KEY
 pagerDutyServices      = process.env.HUBOT_PAGERDUTY_SERVICES
 
 module.exports = (robot) ->
+  # who is on call?
+  robot.respond /who(?:’s|'s|s| is|se)? (?:on call|oncall|on-call)(?:\?)?(?: (?:for )?((["'])([^]*?)\2|(.*?))(?:\?|$))?$/i, (msg) ->
+    if pagerduty.missingEnvironmentForApi(msg)
+      return
 
+    scheduleName = msg.match[3] or msg.match[4]
+
+    messages = []
+    allowed_schedules = []
+    if pagerDutySchedules?
+      allowed_schedules = pagerDutySchedules.split(",")
+
+    renderSchedule = (s, cb) ->
+      withCurrentOncall msg, s, (username, schedule) ->
+        # If there is an allowed schedules array, skip returned schedule not in it
+        if allowed_schedules.length and schedule.id not in allowed_schedules
+          robot.logger.debug "Schedule #{schedule.id} (#{schedule.name}) not in HUBOT_PAGERDUTY_SCHEDULES"
+          return cb null
+
+        # Ignore schedule if no user assigned to it 
+        if (username)
+          messages.push("* #{username} is on call for #{schedule.name} - #{schedule.html_url}")
+        else
+          robot.logger.debug "No user for schedule #{schedule.name}"
+
+        # Return callback
+        cb null
+
+    if scheduleName?
+      SchedulesMatching msg, scheduleName, (s) ->
+        async.map s, renderSchedule, (err) ->
+          if err?
+            robot.emit 'error', err, msg
+            return
+          msg.send messages.join("\n")
+    else
+      pagerduty.getSchedules (err, schedules) ->
+        if err?
+          robot.emit 'error', err, msg
+          return
+        if schedules.length > 0
+          async.map schedules, renderSchedule, (err) ->
+            if err?
+              robot.emit 'error', err, msg
+              return
+            msg.send messages.join("\n")
+        else
+          msg.send 'No schedules found!'
+          
   robot.respond /(pager|major)( me)? maint (\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}) (\d+)?$/i, (msg) ->
     if pagerduty.missingEnvironmentForApi(msg)
       return
