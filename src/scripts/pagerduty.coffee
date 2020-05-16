@@ -2,8 +2,9 @@
 #   Interact with PagerDuty services, schedules, and incidents with Hubot.
 #
 # Commands:
-#   hubot pager maint <date> <time> <minutes> - schedule a maintenance window for <date> <time> <minutes>
+#   hubot pager maint <unix date> <minutes> - schedule a maintenance window for <date> <time> <minutes>
 #   hubot who's on call - return a list of services and who is on call for them
+#   hubot services - return a list of services
 #
 # Authors:
 #   Jesse Newland, Josh Nicols, Jacob Bednarz, Chris Lundquist, Chris Streeter, Joseph Pierri, Greg Hoin, Michael Warkentin
@@ -15,7 +16,6 @@ moment = require('moment-timezone')
 
 pagerDutyUserId        = process.env.HUBOT_PAGERDUTY_USER_ID
 pagerDutyServiceApiKey = process.env.HUBOT_PAGERDUTY_SERVICE_API_KEY
-pagerDutyServices      = process.env.HUBOT_PAGERDUTY_SERVICES
 
 module.exports = (robot) ->
   # who is on call?
@@ -66,44 +66,56 @@ module.exports = (robot) ->
             msg.send messages.join("\n")
         else
           msg.send 'No schedules found!'
-          
-  robot.respond /(pager|major)( me)? maint (\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}) (\d+)?$/i, (msg) ->
+
+  # open maintenance
+  # use unix date command as template (Tue May 12 16:40:07 UTC 2020)
+  robot.respond /(pager|major)( me)? (maint)? (\w{3}) (\w{3}) (\d{2}) ([\d\:]+) (\w{3}) (\d{4}) (\d+)$/i, (msg) ->
     if pagerduty.missingEnvironmentForApi(msg)
       return
 
-    service_ids = pagerDutyServices.split(',')
-
-    year = msg.match[3]
-    month = msg.match[4]
-    day = msg.match[5]
-    hour = msg.match[6]
-    minute = msg.match[7]
-    minutes = msg.match[8]
-    description = "generic window"
-
-    datetime = new Date year + "-" + month + "-" + day + " " + hour + ":" + minute
-    start_time = moment(datetime).format()
-    end_time = moment(datetime).add(minutes, 'minutes').format()
-
-    services = []
-    for service_id in service_ids
-      services.push id: service_id, type: 'service_reference'
-    
-    maintenance_window = { start_time, end_time, description, services }
-    data = { maintenance_window, services }
-
-    #jdata = JSON.stringify(maintenance_window)
-    #msg.send "#{jdata}"
-    msg.send "Opening maintenance window"
-    pagerduty.post '/maintenance_windows', data, (err, json) ->
+    service_ids = []
+    pagerduty.get "/services", { query: "PROD" }, (err, json) ->
       if err?
-        robot.emit 'error', err, msg
+        msg.send 'error', err, msg
         return
 
-      if json && json.maintenance_window
-        msg.send "Maintenance window created! ID: #{json.maintenance_window.id} Ends: #{json.maintenance_window.end_time}"
-      else
-        msg.send "That didn't work. Check Hubot's logs for an error!"
+      services = json.services
+      if services.length > 0
+        for service in services
+          service_ids.push service.id
+
+        dayofweek = msg.match[4]
+        month = msg.match[5]
+        day = msg.match[6]
+        time = msg.match[7]
+        timezone = msg.match[8]
+        year = msg.match[9]
+        minutes = msg.match[10]
+        description = "generic window created by slack room"
+
+        epoch = Date.parse month + " " + day + " " + time + " " + timezone + " " + year
+        datetime = new Date epoch
+        start_time = moment(datetime).format()
+        end_time = moment(datetime).add(minutes, 'minutes').format()
+
+        services = []
+        for service_id in service_ids
+          services.push id: service_id, type: 'service_reference'
+        
+
+        maintenance_window = { start_time, end_time, description, services }
+        data = { maintenance_window, services }
+        
+        msg.send "Opening maintenance window"
+        pagerduty.post '/maintenance_windows', data, (err, json) ->
+          if err?
+            robot.emit 'error', err, msg
+            return
+
+          if json && json.maintenance_window
+            msg.send "Maintenance window created! ID: #{json.maintenance_window.id} Ends: #{json.maintenance_window.end_time}"
+          else
+            msg.send "That didn't work. Check Hubot's logs for an error!"
 
   pagerDutyIntegrationAPI = (msg, cmd, description, cb) ->
     unless pagerDutyServiceApiKey?
