@@ -41,9 +41,7 @@
   "main": "index.coffee",
   "scripts": {
     "release": "release-it",
-    "test": "grunt test",
-    "precommit": "npm test",
-    "prepush": "npm test"
+    "test": "grunt test"
   },
   "homepage": "https://github.com/hubot-scripts/hubot-pager-me#readme",
   "directories": {
