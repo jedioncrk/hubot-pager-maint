@@ -5,9 +5,10 @@
 PagerDuty integration for Hubot but only for creating maintenance windows.  Syntax is as such:
 
 ```
-hubot maint 2019-10-08 13:00 60
+hubot pager maint Sun May 17 01:06:58 UTC 2020 10
 ```
 
+A maintenance window will be created with all services with the "PROD" string.
 
 ## Installation
 
@@ -27,11 +28,10 @@ Then add **hubot-pager-maint** to your `external-scripts.json`:
 
 | Environment Variable | Required? | Description                               |
 | -------------------- | --------- | ----------------------------------------- |
-| `HUBOT_PAGERDUTY_API_KEY` | Yes | The [REST API Key](https://support.pagerduty.com/docs/using-the-api#section-generating-an-api-key) for this integration.
+| `HUBOT_PAGERDUTY_API_KEY` | Yes | The [REST API Key](https://support.pagerduty.com/docs/using-the-api#section-generating-an-api-key) for this integration.|
 | `HUBOT_PAGERDUTY_FROM_EMAIL` | Yes | The email of the default "actor" user for incident creation and modification. |
-| `HUBOT_PAGERDUTY_USER_ID`  | No`*` | The user ID of a PagerDuty user for your bot. This is only required if you want chat users to be able to trigger incidents without their own PagerDuty user.
-| `HUBOT_PAGERDUTY_SERVICE_API_KEY` | No`*` | The [Incident Service Key](https://v2.developer.pagerduty.com/docs/incident-creation-api) to use when creating a new incident. This should be assigned to a dummy escalation policy that doesn't actually notify, as Hubot will trigger on this before reassigning it.
-| `HUBOT_PAGERDUTY_SERVICES` | No | Provide a comma separated list of service identifiers (e.g. `PFGPBFY,AFBCGH`) to restrict queries to only those services. |
+| `HUBOT_PAGERDUTY_USER_ID`  | No`*` | The user ID of a PagerDuty user for your bot. This is only required if you want chat users to be able to trigger incidents without their own PagerDuty user.|
+| `HUBOT_PAGERDUTY_SERVICE_API_KEY` | No`*` | The [Incident Service Key](https://v2.developer.pagerduty.com/docs/incident-creation-api) to use when creating a new incident. This should be assigned to a dummy escalation policy that doesn't actually notify, as Hubot will trigger on this before reassigning it.|
 | `HUBOT_PAGERDUTY_SCHEDULES` | No | Provide a comma separated list of schedules identifiers (e.g. `PFGPBFY,AFBCGH`) to restrict queries to only those schedules. |
 
 `*` - May be required for certain actions.
