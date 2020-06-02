@@ -69,7 +69,7 @@ module.exports = (robot) ->
 
   # open maintenance
   # use unix date command as template (Tue May 12 16:40:07 UTC 2020)
-  robot.respond /(pager|major)( me)? (maint)? (\w{3}) (\w{3}) (\d{2}) ([\d\:]+) (\w{3}) (\d{4}) (\d+)$/i, (msg) ->
+  robot.respond /(pager|major)( me)? (maint)? (\w{3}) (\w{3})\s+(\d+) ([\d\:]+) (\w{3}) (\d{4}) (\d+)$/i, (msg) ->
     if pagerduty.missingEnvironmentForApi(msg)
       return
 
