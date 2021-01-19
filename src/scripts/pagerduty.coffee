@@ -16,6 +16,8 @@ moment = require('moment-timezone')
 
 pagerDutyUserId        = process.env.HUBOT_PAGERDUTY_USER_ID
 pagerDutyServiceApiKey = process.env.HUBOT_PAGERDUTY_SERVICE_API_KEY
+pagerDutyServiceQuery  = process.env.HUBOT_PAGERDUTY_SERVICE_QUERY
+
 
 module.exports = (robot) ->
   # who is on call?
@@ -74,7 +76,7 @@ module.exports = (robot) ->
       return
 
     service_ids = []
-    pagerduty.get "/services", { query: "PROD" }, (err, json) ->
+    pagerduty.get "/services", pagerDutyServiceQuery, (err, json) ->
       if err?
         msg.send 'error', err, msg
         return
@@ -91,31 +93,32 @@ module.exports = (robot) ->
         timezone = msg.match[8]
         year = msg.match[9]
         minutes = msg.match[10]
-        description = "generic window created by slack room"
-
+       
         epoch = Date.parse month + " " + day + " " + time + " " + timezone + " " + year
         datetime = new Date epoch
+        description = "generic window created by slack room starting at #{datetime}"
         start_time = moment(datetime).format()
         end_time = moment(datetime).add(minutes, 'minutes').format()
+        type = "maintenance_window"
 
         services = []
         for service_id in service_ids
           services.push id: service_id, type: 'service_reference'
         
 
-        maintenance_window = { start_time, end_time, description, services }
-        data = { maintenance_window, services }
+        maintenance_window = { start_time, end_time, type, description, services }
+        data = { maintenance_window }
         
         msg.send "Opening maintenance window"
         pagerduty.post '/maintenance_windows', data, (err, json) ->
           if err?
             robot.emit 'error', err, msg
+            msg.send "That didn't work. Check Hubot's logs for an error!"
             return
 
           if json && json.maintenance_window
             msg.send "Maintenance window created! ID: #{json.maintenance_window.id} Ends: #{json.maintenance_window.end_time}"
-          else
-            msg.send "That didn't work. Check Hubot's logs for an error!"
+            
 
   pagerDutyIntegrationAPI = (msg, cmd, description, cb) ->
     unless pagerDutyServiceApiKey?
