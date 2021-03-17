@@ -18,6 +18,9 @@ pagerDutyUserId        = process.env.HUBOT_PAGERDUTY_USER_ID
 pagerDutyServiceApiKey = process.env.HUBOT_PAGERDUTY_SERVICE_API_KEY
 pagerDutyServiceQuery  = process.env.HUBOT_PAGERDUTY_SERVICE_QUERY
 
+if (typeof pagerDutyServiceQuery == "string")
+  # convert to JSON object
+  pagerDutyServiceQuery = JSON.parse(pagerDutyServiceQuery)
 
 module.exports = (robot) ->
   # who is on call?
